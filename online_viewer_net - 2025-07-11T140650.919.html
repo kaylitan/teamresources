@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT Resource Allocation Analysis</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.4/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    :root {
+      --primary: #212529;
+      --secondary: #005A9C;
+      --light: #f8f9fa;
+      --card-bg: #ffffff;
+      --text-dark: #212529;
+      --text-light: #6c757d;
+      --border: #dee2e6;
+      --shadow: rgba(0, 0, 0, 0.06);
+      --success: #198754;
+      --danger: #dc3545;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    body {
+      background-color: var(--light);
+    }
+    .container {
+      max-width: 1800px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* HEADER */
+    header {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text-dark);
+      padding: 25px 30px;
+      border-radius: 16px;
+      margin-bottom: 24px;
+    }
+    header h1 { font-size: 2rem; color: var(--primary); }
+    header h1 i { color: var(--secondary); margin-right: 15px; }
+    header p { color: var(--text-light); }
+
+    /* NEW: Professional Dashboard Layout */
+    .dashboard-layout {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 24px;
+    }
+    .main-content {
+        flex: 3; /* Main content takes more space */
+        min-width: 300px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+    .sidebar {
+        flex: 1; /* Sidebar takes less space */
+        min-width: 300px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+    /* Responsive Collapse */
+    @media (max-width: 1200px) {
+        .dashboard-layout { flex-direction: column; }
+        .sidebar { order: -1; /* Move sidebar to the top on smaller screens */ }
+    }
+    
+    /* CARD STYLING */
+    .card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 12px var(--shadow);
+    }
+    .card-header {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 10px;
+    }
+    .card-header h2 {
+        grid-column: 1 / 2;
+        justify-self: start;
+        font-size: 1.25rem;
+        color: var(--primary);
+    }
+    .card-header i { margin-right: 10px; color: var(--secondary); }
+    
+    /* Chart View Toggle Buttons */
+    .chart-view-options {
+        grid-column: 2 / 3;
+        justify-self: center;
+    }
+    .chart-view-options .view-btn {
+        background: #f1f3f5;
+        border: 1px solid #dee2e6;
+        padding: 4px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        margin-left: 5px;
+        transition: all 0.2s ease-in-out;
+    }
+    .chart-view-options .view-btn:hover {
+        border-color: var(--secondary);
+    }
+    .chart-view-options .view-btn.active {
+        background: var(--secondary);
+        color: white;
+        border-color: var(--secondary);
+    }
+
+
+    /* FILTERS CARD */
+    .filters .filter-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        padding-bottom: 1rem;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .filters .filter-header h3 { font-size: 1.25rem; margin-bottom: 0; }
+    .filters .filter-header .toggle-icon {
+        transition: transform 0.3s ease-in-out;
+    }
+    .filters .filter-header.collapsed .toggle-icon {
+        transform: rotate(-90deg);
+    }
+    #filter-content {
+        max-height: 1000px; /* Set a large max-height for transition */
+        overflow: hidden;
+        transition: max-height 0.5s ease-in-out;
+    }
+    #filter-content.collapsed {
+        max-height: 0;
+        margin-top: -1rem; /* Adjust to remove space from header's margin */
+    }
+    .filter-group { padding-bottom: 1rem; margin-bottom: 1rem; }
+    .filter-group:not(:last-child) { border-bottom: 1px solid var(--border); }
+    .filter-group h4 { font-size: 1rem; margin-bottom: 0.75rem; color: var(--text-light); font-weight: 500; }
+    .filter-options { display: flex; flex-wrap: wrap; gap: 8px; }
+    .filter-btn {
+      background: #f1f3f5; border: 1px solid transparent; padding: 8px 16px;
+      border-radius: 50px; cursor: pointer; font-weight: 500; transition: all 0.2s ease-in-out;
+    }
+    .filter-btn:hover { border-color: var(--secondary); }
+    .filter-btn.active { background: var(--secondary); color: white; border-color: var(--secondary); }
+
+    /* KPI & LEGEND STYLES */
+    .total-hours { font-size: 2.8rem; font-weight: 700; color: var(--secondary); margin: 10px 0 5px 0; }
+    .card-description { color: var(--text-light); font-size: 0.9rem; }
+    .distribution-flex { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 10px 0; }
+    #distributionChart { max-width: 180px; max-height: 180px; }
+    .custom-legend { font-size: 0.9rem; }
+    .custom-legend span { display: flex; align-items: center; margin-bottom: 5px; }
+    .custom-legend-box { width: 12px; height: 12px; border-radius: 3px; margin-right: 8px; flex-shrink: 0;}
+
+    /* CHARTS & TABLE */
+    .charts-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+    }
+    .full-width-chart {
+        grid-column: 1 / -1;
+    }
+    .chart-wrapper { height: 450px; position: relative; } /* Increased height */
+    
+    .table-container { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 12px 15px; text-align: left;
+      border: 1px solid #ced4da; /* FIX: More visible border */
+    }
+    th { background-color: #f8f9fa; font-weight: 600; }
+    tr:hover { background-color: rgba(0, 90, 156, 0.04); }
+
+    .positive { color: var(--success); font-weight: 600; }
+    .negative { color: var(--danger); font-weight: 600; }
+    .neutral { color: var(--text-light); }
+
+    /* Mobile-specific adjustments */
+    @media (max-width: 768px) {
+        .charts-grid { grid-template-columns: 1fr; }
+    }
+    
+    .footer {
+      text-align: center; padding: 24px 0; color: var(--text-light);
+      font-size: 0.9rem; margin-top: 24px; border-top: 1px solid var(--border);
+    }
+</style>
+</head>
+<body>
+    
+<div class="container">
+  <header>
+    <h1><i class="fas fa-chart-line"></i> IT Resource Allocation Analysis</h1>
+    <p>An overview of resource allocation, trends, and performance metrics across teams and locations.</p>
+  </header>
+
+  <main class="dashboard-layout">
+    
+    <div class="main-content">
+        <div class="card chart-card full-width-chart">
+          <div class="card-header">
+              <h2><i class="fas fa-chart-bar"></i> Ticket Allocation by Week</h2>
+              <div class="chart-view-options" id="bar-chart-view-filter">
+                  <button class="view-btn active" data-view="normal">Normal</button>
+                  <button class="view-btn" data-view="stacked">Stacked</button>
+              </div>
+          </div>
+          <div class="chart-wrapper"><canvas id="barChart"></canvas></div>
+        </div>
+        
+        <div class="card chart-card full-width-chart">
+            <div class="card-header"><h2><i class="fas fa-chart-area"></i> Ticket Type Trends</h2></div>
+            <div class="chart-wrapper"><canvas id="trendChart"></canvas></div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="card chart-card">
+              <div class="card-header">
+                  <h2><i class="fas fa-bullseye"></i> Ticket Distribution</h2>
+                  <div class="chart-view-options" id="dist-chart-view-filter">
+                      <button class="view-btn active" data-view="pie">Pie</button>
+                      <button class="view-btn" data-view="polar">Polar</button>
+                  </div>
+              </div>
+              <div class="chart-wrapper">
+                  <canvas id="distributionChart"></canvas>
+                  <canvas id="polarChart" style="display: none;"></canvas>
+              </div>
+            </div>
+            <div class="card table-container">
+              <div class="card-header"><h2><i class="fas fa-table"></i> Weekly Allocation Comparison</h2></div>
+              <table>
+                <thead id="comparison-table-head">
+                  <!-- Headers will be dynamically generated -->
+                </thead>
+                <tbody id="comparison-table-body"></tbody>
+              </table>
+            </div>
+        </div>
+    </div>
+
+    <aside class="sidebar">
+        
+        <div class="card filters">
+            <div class="filter-header" id="filter-toggle">
+                <h3><i class="fas fa-filter"></i> Filters</h3>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div id="filter-content">
+                <div class="filter-group">
+                    <h4><i class="fas fa-globe-asia"></i> Resources</h4>
+                    <div class="filter-options" id="resource-filter">
+                      <button class="filter-btn active" data-value="all">All</button>
+                      <button class="filter-btn" data-value="Malaysia">Malaysia</button>
+                      <button class="filter-btn" data-value="India">India</button>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <h4><i class="fas fa-users"></i> Team</h4>
+                    <div class="filter-options" id="team-filter">
+                      <button class="filter-btn active" data-value="all">All</button>
+                      <button class="filter-btn" data-value="FE">Frontend</button>
+                      <button class="filter-btn" data-value="BE">Backend</button>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <h4><i class="fas fa-calendar-alt"></i> Weeks</h4>
+                    <div class="filter-options" id="week-filter">
+                      <button class="filter-btn active" data-value="all">All Weeks</button>
+                      <button class="filter-btn" data-value="Week 1">Week 1</button>
+                      <button class="filter-btn" data-value="Week 2">Week 2</button>
+                      <button class="filter-btn" data-value="Week 3">Week 3</button>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <h4><i class="fas fa-ticket-alt"></i> Ticket Type</h4>
+                    <div class="filter-options" id="ticket-filter">
+                      <button class="filter-btn active" data-value="all">All</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header"><h2><i class="fas fa-clock"></i> Total Working Hours</h2></div>
+            <div class="total-hours" id="total-hours">...</div>
+            <p class="card-description">Total hours for selected filters.</p>
+        </div>
+          
+        <div class="card">
+            <div class="card-header"><h2><i class="fas fa-tasks"></i> Ticket Distribution</h2></div>
+            <div class="distribution-flex">
+              <div id="distribution-legend" class="custom-legend"></div>
+            </div>
+        </div>
+
+    </aside>
+
+  </main>
+  
+  <div class="footer">
+    <p>IT Resource Allocation Dashboard &copy; 2025</p>
+  </div>
+</div>
+  
+  <script>
+
+const rawData = [
+  { "date": "2025-06-16", "name": "Abdul Hai", "team": "FE", "resource": "India", "fr": 87.5, "ibs": 0, "par": 0, "nm": 0, "oneboard": 0, "champ": 0, "internal": 0, "theone": 0, "others": 12.5, "hours": 8 },
+  { "date": "2025-06-16", "name": "Aishwarya", "team": "BE", "resource": "India", "fr": 50, "ibs": 0, "par": 0, "nm": 0, "oneboard": 0, "champ": 0, "internal": 0, "theone": 0, "others": 50, "hours": 8 },
+  { "date": "2025-06-16", "name": "Akash", "team": "FE", "resource": "India", "fr": 0, "ibs": 100, "par": 0, "nm": 0, "oneboard": 0, "champ": 0, "internal": 0, "theone": 0, "others": 0, "hours": 8 },
+  { "date": "2025-06-16", "name": "Allaudhin", "team": "BE", "resource": "India", "fr": 0, "ibs": 0, "par": 0, "nm": 0, "oneboard": 0, "champ": 0, "internal": 0, "theone": 0, "others": 100, "hours": 8 },
+  { "date": "2025-06-16", "name": "Amjad", "team": "BE", "resource": "India", "fr": 87.5, "ibs": 0, "par": 0, "nm": 0, "oneboard": 0, "champ": 0, "internal": 0, "theone": 0, "others": 12.5, "hours": 8 },
+  { "date": "2025-06-16", "name": "Arjun", "team": "BE", "resource": "India", "fr": 0, "ibs": 0, "par": 0, "nm": 0, "oneboard": 0, "champ": 0, "internal": 100, "theone": 0, "others": 0, "hours": 8 },
+  { "date": "2025-06-16", "name": "Chen", "team": "FE", "resource": "Malaysia", "fr": 87.5, "ibs": 0, "par": 0, "nm": 0, "oneboard": 0, "champ": 0, "internal": 0, "theone": 0, "others": 12.5, "hours": 8 },
+  { "date": "2025-06-16", "name": "Chuan", "team": "BE", "resource": "Malaysia", "fr": 31.25, "ibs": 25, "par": 25, "nm": 0, "oneboard": 0, "champ": 0, "internal": 0, "theone": 0, "others": 18.75, "hours": 8 },
+  { "date": "2025-06-16", "name": "Clarence", "team": "BE", "resource": "Malaysia", "fr": 0, "ibs": 6.25, "par": 81.25, "nm": 0, "oneboard": 0, "champ": 0, "internal": 0, "theone": 0, "others": 12.5, "hours": 8 },
+  { "date": "2025-06-16", "name": "Danny", "team": "FE", "resource": "Malaysia", "fr": 0, "ibs": 0, "par": 0, "nm": 0, "oneboard": 0, "champ": 0, "internal": 62.5, "theone": 0, "others": 37.5, "hours": 8 },
+  // ... (The rest of the rawData would be here)
+];
+// Define color schemes for charts
+    // --- CONFIGURATION ---
+    const chartColors = {
+      fr: '#FF6384', ibs: '#36A2EB', par: '#FFCE56', nm: '#4BC0C0', oneboard: '#9966FF',
+      champ: '#FF9F40', internal: '#C9CBCF', theone: '#7EBE37', others: '#2E8B57'
+    };
+    const ticketTypes = {
+      fr: 'FR Ticket', ibs: 'IBS Ticket', par: 'PAR Ticket', nm: 'NM Ticket', oneboard: 'ONEBOARD',
+      champ: 'CHAMP', internal: 'Internal', theone: 'THEONE', others: 'Others'
+    };
+    const allTicketKeys = Object.keys(ticketTypes);
+    const allWeeks = ['Week 1', 'Week 2', 'Week 3'];
+    let currentFilters = {
+      resource: 'all', 
+      team: 'all', 
+      weeks: ['all'], 
+      tickets: [...allTicketKeys]
+    };
+    let distributionChart, barChart, trendChart, polarChart;
+
+    // --- CUSTOM PLUGINS ---
+    const percentageLabelsPlugin = {
+        id: 'percentageLabels',
+        afterDatasetsDraw(chart) {
+            const { ctx, canvas } = chart;
+            if (canvas.id !== 'barChart') return;
+
+            ctx.save();
+            const datasets = chart.data.datasets;
+            if (!datasets || datasets.length === 0) { ctx.restore(); return; }
+            
+            const meta = chart.getDatasetMeta(0);
+            if (!meta || !meta.data || meta.data.length === 0) { ctx.restore(); return; }
+            
+            const totals = new Array(meta.data.length).fill(0);
+            datasets.forEach((dataset, i) => {
+                if (chart.isDatasetVisible(i)) {
+                    dataset.data.forEach((value, j) => {
+                        totals[j] += value;
+                    });
+                }
+            });
+
+            if (chart.options.scales.x.stacked) {
+                // STACKED CHART LABEL LOGIC
+                const LABEL_FONT_SIZE = 10;
+                const LABEL_HEIGHT = 16;
+                const LEADER_LINE_OFFSET = 5;
+                const LEADER_LINE_LENGTH = 10;
+                
+                for (let j = 0; j < totals.length; j++) {
+                    if (totals[j] <= 0) continue;
+                    const smallSegments = [];
+
+                    datasets.forEach((dataset, i) => {
+                        if (!chart.isDatasetVisible(i)) return;
+                        const value = dataset.data[j];
+                        if (value <= 0) return;
+
+                        const element = chart.getDatasetMeta(i).data[j];
+                        const percentage = (value / totals[j]) * 100;
+
+                        if (element.height > LABEL_HEIGHT) {
+                            ctx.font = `bold ${LABEL_FONT_SIZE}px sans-serif`;
+                            ctx.fillStyle = 'white';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(`${percentage.toFixed(0)}%`, element.x, element.y + element.height / 2);
+                        } else {
+                            smallSegments.push({
+                                element: element,
+                                percentage: percentage,
+                                color: dataset.backgroundColor
+                            });
+                        }
+                    });
+
+                    if (smallSegments.length > 0) {
+                        ctx.font = `${LABEL_FONT_SIZE}px sans-serif`;
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'middle';
+                        
+                        smallSegments.sort((a, b) => a.element.y - b.element.y);
+
+                        let lastLabelY = -Infinity;
+
+                        smallSegments.forEach(segment => {
+                            const { element, percentage, color } = segment;
+                            const segmentCenterY = element.y + element.height / 2;
+                            
+                            let labelY = Math.max(segmentCenterY, lastLabelY + LABEL_HEIGHT);
+                            if (labelY > chart.chartArea.bottom - LABEL_HEIGHT / 2) {
+                               labelY = chart.chartArea.bottom - LABEL_HEIGHT / 2;
+                            }
+                            
+                            const labelX = chart.chartArea.right + LEADER_LINE_OFFSET;
+                            
+                            ctx.beginPath();
+                            ctx.strokeStyle = color;
+                            ctx.lineWidth = 2;
+                            ctx.moveTo(element.x + element.width / 2, segmentCenterY);
+                            ctx.lineTo(element.x + element.width / 2 + LEADER_LINE_LENGTH, labelY);
+                            ctx.lineTo(labelX, labelY);
+                            ctx.stroke();
+                            
+                            ctx.fillStyle = '#333';
+                            ctx.fillText(`${percentage.toFixed(1)}%`, labelX + 5, labelY);
+
+                            lastLabelY = labelY;
+                        });
+                    }
+                }
+            } else {
+                // GROUPED CHART LABEL LOGIC
+                ctx.font = 'bold 10px sans-serif';
+                ctx.fillStyle = '#333';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+
+                datasets.forEach((dataset, i) => {
+                    if (chart.isDatasetVisible(i)) {
+                        const datasetMeta = chart.getDatasetMeta(i);
+                        datasetMeta.data.forEach((element, index) => {
+                            const value = dataset.data[index];
+                            if (value > 0 && totals[index] > 0) {
+                                const percentage = (value / totals[index]) * 100;
+                                ctx.fillText(`${percentage.toFixed(0)}%`, element.x, element.y - 4);
+                            }
+                        });
+                    }
+                });
+            }
+            ctx.restore();
+        }
+    };
+    const pieChartLabelsPlugin = {
+        id: 'pieChartLabels',
+        afterDraw(chart, args, options) {
+            if (chart.canvas.id !== 'distributionChart') return;
+
+            const { ctx, chartArea: { top, bottom, left, right } } = chart;
+            const datasets = chart.data.datasets;
+            
+            if (!datasets.length || !datasets[0] || !Array.isArray(datasets[0].data) || !datasets[0].data.length) {
+                return;
+            }
+
+            ctx.save();
+            const total = datasets[0].data.reduce((a, b) => a + b, 0);
+            if (total <= 0) {
+                ctx.restore();
+                return;
+            }
+
+            const LABEL_THRESHOLD = 5; 
+            const smallSegments = [];
+
+            datasets[0].data.forEach((value, i) => {
+                const meta = chart.getDatasetMeta(0);
+                if (!meta.data[i]) return;
+                const arc = meta.data[i];
+                const percentage = (value / total) * 100;
+
+                if (percentage < LABEL_THRESHOLD) {
+                    smallSegments.push({ index: i, arc: arc, percentage: percentage, color: datasets[0].backgroundColor[i] });
+                    return;
+                }
+
+                const centerPoint = arc.getCenterPoint();
+                if (!centerPoint) return;
+                const {x, y} = centerPoint;
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 11px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${percentage.toFixed(0)}%`, x, y);
+            });
+
+            if (smallSegments.length > 0) {
+                ctx.font = '11px sans-serif';
+                ctx.fillStyle = '#333';
+                let lastY = 0;
+
+                smallSegments.sort((a, b) => a.arc.startAngle - b.arc.startAngle);
+                
+                smallSegments.forEach(segment => {
+                    const { arc, percentage, color } = segment;
+                    const midAngle = arc.startAngle + (arc.endAngle - arc.startAngle) / 2;
+                    const endPointX = right + 20;
+                    
+                    let endPointY = top + (bottom - top) * (midAngle / (2 * Math.PI));
+                    if (lastY > 0 && endPointY < lastY + 12) {
+                        endPointY = lastY + 12;
+                    }
+                    lastY = endPointY;
+
+                    ctx.strokeStyle = color;
+                    ctx.beginPath();
+                    const centerPoint = arc.getCenterPoint();
+                    if (!centerPoint) return;
+                    const {x, y} = centerPoint;
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(endPointX - 10, endPointY);
+                    ctx.stroke();
+
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(`${percentage.toFixed(1)}%`, endPointX, endPointY);
+                });
+            }
+
+            ctx.restore();
+        }
+    };
+    Chart.register(percentageLabelsPlugin, pieChartLabelsPlugin);
+
+
+    // --- INITIALIZATION ---
+    document.addEventListener('DOMContentLoaded', () => {
+        initCharts();
+        setupFilterEvents();
+    });
+
+      // Set up filter event listeners
+      function setupFilterEvents() {
+        document.getElementById('filter-toggle').addEventListener('click', function() {
+            this.classList.toggle('collapsed');
+            document.getElementById('filter-content').classList.toggle('collapsed');
+        });
+
+        document.querySelectorAll('#bar-chart-view-filter .view-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelector('#bar-chart-view-filter .view-btn.active').classList.remove('active');
+                btn.classList.add('active');
+                const view = btn.dataset.view;
+                const isStacked = view === 'stacked';
+                
+                barChart.options.scales.x.stacked = isStacked;
+                barChart.options.scales.y.stacked = isStacked;
+                barChart.options.layout.padding.right = isStacked ? 60 : 0;
+                barChart.update();
+            });
+        });
+        
+        document.querySelectorAll('#dist-chart-view-filter .view-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelector('#dist-chart-view-filter .view-btn.active').classList.remove('active');
+                btn.classList.add('active');
+                const view = btn.dataset.view;
+                if (view === 'pie') {
+                    document.getElementById('distributionChart').style.display = 'block';
+                    document.getElementById('polarChart').style.display = 'none';
+                } else {
+                    document.getElementById('distributionChart').style.display = 'none';
+                    document.getElementById('polarChart').style.display = 'block';
+                }
+            });
+        });
+
+        document.querySelectorAll('#resource-filter .filter-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelector('#resource-filter .filter-btn.active').classList.remove('active');
+            btn.classList.add('active');
+            currentFilters.resource = btn.dataset.value;
+            updateCharts();
+          });
+        });
+
+        document.querySelectorAll('#team-filter .filter-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelector('#team-filter .filter-btn.active').classList.remove('active');
+            btn.classList.add('active');
+            currentFilters.team = btn.dataset.value;
+            updateCharts();
+          });
+        });
+
+        const weekFilterContainer = document.getElementById('week-filter');
+        const weekButtons = weekFilterContainer.querySelectorAll('.filter-btn');
+        const allWeeksBtn = weekFilterContainer.querySelector('.filter-btn[data-value="all"]');
+        const specificWeekBtns = Array.from(weekFilterContainer.querySelectorAll('.filter-btn:not([data-value="all"])'));
+
+        weekButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const value = btn.dataset.value;
+
+                if (value === 'all') {
+                    allWeeksBtn.classList.add('active');
+                    specificWeekBtns.forEach(b => b.classList.remove('active'));
+                } else {
+                    allWeeksBtn.classList.remove('active');
+                    btn.classList.toggle('active');
+                    const activeSpecificWeeks = specificWeekBtns.filter(b => b.classList.contains('active'));
+                    if (activeSpecificWeeks.length === 0) {
+                        allWeeksBtn.classList.add('active');
+                    }
+                }
+
+                const activeButtons = Array.from(weekFilterContainer.querySelectorAll('.filter-btn.active'));
+                const activeValues = activeButtons.map(b => b.dataset.value);
+
+                if (activeValues.includes('all') || activeValues.length === 0) {
+                    currentFilters.weeks = ['all'];
+                } else {
+                    currentFilters.weeks = activeValues;
+                }
+                updateCharts();
+            });
+        });
+
+        const ticketFilterContainer = document.getElementById('ticket-filter');
+        const allTicketsBtn = ticketFilterContainer.querySelector('.filter-btn[data-value="all"]');
+        
+        Object.entries(ticketTypes).forEach(([key, value]) => {
+            const button = document.createElement('button');
+            button.className = 'filter-btn';
+            button.dataset.value = key;
+            button.textContent = value;
+            ticketFilterContainer.appendChild(button);
+        });
+        
+        ticketFilterContainer.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const value = btn.dataset.value;
+
+                if (value === 'all') {
+                    if (!allTicketsBtn.classList.contains('active')) {
+                        ticketFilterContainer.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                        allTicketsBtn.classList.add('active');
+                        currentFilters.tickets = [...allTicketKeys];
+                    }
+                } else {
+                    allTicketsBtn.classList.remove('active');
+                    btn.classList.toggle('active');
+
+                    const activeTickets = Array.from(ticketFilterContainer.querySelectorAll('.filter-btn.active:not([data-value="all"])'))
+                                             .map(b => b.dataset.value);
+
+                    if (activeTickets.length === 0) {
+                        allTicketsBtn.classList.add('active');
+                        currentFilters.tickets = [...allTicketKeys];
+                    } else {
+                        currentFilters.tickets = activeTickets;
+                    }
+                }
+                updateCharts();
+            });
+        });
+      }
+      
+      function getWeek(date) {
+        const entryDate = new Date(date);
+        if (entryDate < new Date('2025-06-22')) return 'Week 1';
+        if (entryDate < new Date('2025-06-29')) return 'Week 2';
+        return 'Week 3';
+      }
+
+      function processData() {
+        return rawData.filter(entry => {
+          const resourceMatch = currentFilters.resource === 'all' || entry.resource === currentFilters.resource;
+          const teamMatch = currentFilters.team === 'all' || entry.team === currentFilters.team;
+          const entryWeek = getWeek(entry.date);
+          const weekMatch = currentFilters.weeks.includes('all') || currentFilters.weeks.includes(entryWeek);
+          return resourceMatch && teamMatch && weekMatch;
+        });
+      }
+
+      function initCharts() {
+        // Shared tooltip callback for bar and line charts
+        const weeklyTooltipCallback = function(context) {
+            const label = context.dataset.label || '';
+            const value = context.parsed.y;
+            if (value === null) return null;
+
+            const dataIndex = context.dataIndex;
+            let total = 0;
+            context.chart.data.datasets.forEach(dataset => {
+                if (dataset.data[dataIndex]) {
+                    total += dataset.data[dataIndex];
+                }
+            });
+
+            const percentage = total > 0 ? (value / total) * 100 : 0;
+            return `${label}: ${percentage.toFixed(0)}% (${value.toFixed(1)} hrs)`;
+        };
+
+        const distributionTooltipCallback = function(context) {
+            const label = context.label || '';
+            const value = context.parsed;
+            const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+            const percentage = total > 0 ? (value / total) * 100 : 0;
+            return `${label}: ${percentage.toFixed(0)}% (${value.toFixed(1)} hrs)`;
+        };
+
+        const polarTooltipCallback = function(context) {
+            const label = context.label || '';
+            const value = context.raw;
+            const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+            const percentage = total > 0 ? (value / total) * 100 : 0;
+            return `${label}: ${percentage.toFixed(0)}% (${value.toFixed(1)} hrs)`;
+        };
+
+        // Initialize charts with empty data structures and tooltip options
+        const distributionCtx = document.getElementById('distributionChart').getContext('2d');
+        distributionChart = new Chart(distributionCtx, {
+            type: 'pie',
+            data: { labels: [], datasets: [{ data: [], backgroundColor: [] }] },
+            options: { responsive: true, maintainAspectRatio: false, layout: { padding: { right: 40 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: distributionTooltipCallback } } } }
+        });
+
+        const barCtx = document.getElementById('barChart').getContext('2d');
+        barChart = new Chart(barCtx, {
+            type: 'bar',
+            data: { labels: [], datasets: [] },
+            options: { responsive: true, maintainAspectRatio: false, layout: { padding: { right: 0 } }, scales: { x: { stacked: false, title: { display: true, text: 'Week' } }, y: { stacked: false, beginAtZero: true, title: { display: true, text: 'Hours' } } }, plugins: { tooltip: { callbacks: { label: weeklyTooltipCallback } } } }
+        });
+
+        const trendCtx = document.getElementById('trendChart').getContext('2d');
+        trendChart = new Chart(trendCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [] },
+            options: { responsive: true, maintainAspectRatio: false, layout: { padding: { right: 100 } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'Hours' } }, x: { title: { display: true, text: 'Week' } } }, plugins: { tooltip: { callbacks: { label: weeklyTooltipCallback } }, annotation: { clip: false, annotations: {} } } }
+        });
+
+        const polarCtx = document.getElementById('polarChart').getContext('2d');
+        polarChart = new Chart(polarCtx, {
+            type: 'polarArea',
+            data: { labels: [], datasets: [{ data: [], backgroundColor: [] }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { r: { beginAtZero: true, ticks: { display: false }, grid: { circular: true } } }, plugins: { tooltip: { callbacks: { label: polarTooltipCallback } } } }
+        });
+        updateCharts();
+      }
+
+      function prepareChartData(filteredData) {
+        const selectedWeeks = (currentFilters.weeks.includes('all') ? allWeeks : [...currentFilters.weeks]).sort((a, b) => parseInt(a.replace('Week ', '')) - parseInt(b.replace('Week ', '')));
+
+        const result = {
+          distribution: { labels: [], data: [], bgColors: [] },
+          bar: { labels: selectedWeeks, datasets: [] },
+          trend: { labels: selectedWeeks, datasets: [] },
+          polar: { labels: [], data: [], bgColors: [] }
+        };
+        
+        const weeklyData = {};
+        selectedWeeks.forEach(week => { weeklyData[week] = { totals: {} }; });
+        
+        filteredData.forEach(entry => {
+          const week = getWeek(entry.date);
+          if (selectedWeeks.includes(week)) {
+            allTicketKeys.forEach(ticket => {
+              if (currentFilters.tickets.includes(ticket) && entry[ticket] > 0) {
+                const hours = (entry[ticket] * entry.hours) / 100;
+                if (!weeklyData[week].totals[ticket]) weeklyData[week].totals[ticket] = 0;
+                weeklyData[week].totals[ticket] += hours;
+              }
+            });
+          }
+        });
+
+        const totalDistribution = {};
+        Object.values(weeklyData).forEach(week => {
+            Object.entries(week.totals).forEach(([ticket, hours]) => {
+                if (!totalDistribution[ticket]) totalDistribution[ticket] = 0;
+                totalDistribution[ticket] += hours;
+            });
+        });
+
+        Object.entries(totalDistribution).forEach(([ticket, hours]) => {
+            result.distribution.labels.push(ticketTypes[ticket]);
+            result.distribution.data.push(hours);
+            result.distribution.bgColors.push(chartColors[ticket]);
+        });
+        
+        result.polar.labels = [...result.distribution.labels];
+        result.polar.data = [...result.distribution.data];
+        result.polar.bgColors = [...result.distribution.bgColors];
+
+        currentFilters.tickets.forEach(ticket => {
+            const dataForTicket = selectedWeeks.map(week => weeklyData[week].totals[ticket] || 0);
+            if (dataForTicket.some(d => d > 0)) {
+                result.bar.datasets.push({ label: ticketTypes[ticket], data: dataForTicket, backgroundColor: chartColors[ticket] });
+                result.trend.datasets.push({ label: ticketTypes[ticket], data: dataForTicket, borderColor: chartColors[ticket], backgroundColor: chartColors[ticket] + '40', fill: true, tension: 0.1 });
+            }
+        });
+        
+        return result;
+      }
+
+      function updatePieChartLegend(data) {
+        const legendContainer = document.getElementById('distribution-legend');
+        legendContainer.innerHTML = '';
+        const totalHours = data.data.reduce((sum, value) => sum + value, 0);
+
+        data.labels.forEach((label, index) => {
+            const hours = data.data[index];
+            const percentage = totalHours > 0 ? (hours / totalHours) * 100 : 0;
+            const legendItem = document.createElement('span');
+            legendItem.innerHTML = `<span class="custom-legend-box" style="background:${data.bgColors[index]}"></span>${label}: ${percentage.toFixed(0)}% (${hours.toFixed(1)} hrs)`;
+            legendContainer.appendChild(legendItem);
+        });
+      }
+      
+      function getChangeCell(current, previous) {
+        if (previous === 0) return `<td class="${current > 0 ? 'positive' : 'neutral'}">${current > 0 ? 'New' : '0.0%'}</td>`;
+        const change = ((current - previous) / previous) * 100;
+        const className = change > 0.1 ? 'positive' : change < -0.1 ? 'negative' : 'neutral';
+        return `<td class="${className}">${change > 0 ? '+' : ''}${change.toFixed(1)}%</td>`;
+      }
+
+      function updateComparisonTable(filteredData) {
+        const selectedWeeks = (currentFilters.weeks.includes('all') ? allWeeks : [...currentFilters.weeks]).sort((a, b) => parseInt(a.replace('Week ', '')) - parseInt(b.replace('Week ', '')));
+        
+        const tableHead = document.getElementById('comparison-table-head');
+        let headerHtml = '<tr><th>Metric</th>';
+        selectedWeeks.forEach((week, index) => {
+            headerHtml += `<th>${week}</th>`;
+            if (index > 0) headerHtml += '<th>Change</th>';
+        });
+        headerHtml += '</tr>';
+        tableHead.innerHTML = headerHtml;
+
+        const weeklyTotals = {};
+        selectedWeeks.forEach(week => { weeklyTotals[week] = {}; });
+
+        filteredData.forEach(entry => {
+            const week = getWeek(entry.date);
+            if (selectedWeeks.includes(week)) {
+                allTicketKeys.forEach(ticket => {
+                    if (entry[ticket] > 0) {
+                        const hours = (entry[ticket] * entry.hours) / 100;
+                        if (!weeklyTotals[week][ticket]) weeklyTotals[week][ticket] = 0;
+                        weeklyTotals[week][ticket] += hours;
+                    }
+                });
+            }
+        });
+        
+        const allHours = [];
+        const displayOrder = ['fr', 'ibs', 'par', 'nm', 'oneboard', 'champ', 'internal', 'theone', 'others'];
+        displayOrder.forEach(ticket => {
+            selectedWeeks.forEach(week => {
+                const hours = weeklyTotals[week]?.[ticket] || 0;
+                if (hours > 0) {
+                    allHours.push(hours);
+                }
+            });
+        });
+        const maxHours = allHours.length > 0 ? Math.max(...allHours) : 0;
+
+        function getHeatmapStyle(value) {
+          if (maxHours === 0 || value <= 0) return '';
+          const intensity = value / maxHours;
+          const opacity = 0.1 + (intensity * 0.8);
+          const fontColor = opacity > 0.5 ? 'white' : 'var(--primary)';
+          return `style="background-color: rgba(0, 90, 156, ${opacity}); color: ${fontColor}; font-weight: 500;"`;
+        }
+
+        const tableBody = document.getElementById('comparison-table-body');
+        let tableHtml = '';
+        
+        displayOrder.forEach(ticket => {
+            const hasData = selectedWeeks.some(week => weeklyTotals[week]?.[ticket] > 0);
+            if (hasData) {
+                let rowHtml = `<td>${ticketTypes[ticket]}</td>`;
+                selectedWeeks.forEach((week, index) => {
+                    const current = weeklyTotals[week]?.[ticket] || 0;
+                    rowHtml += `<td ${getHeatmapStyle(current)}>${current.toFixed(1)} hrs</td>`;
+                    if (index > 0) {
+                        const previous = weeklyTotals[selectedWeeks[index - 1]]?.[ticket] || 0;
+                        rowHtml += getChangeCell(current, previous);
+                    }
+                });
+                tableHtml += `<tr>${rowHtml}</tr>`;
+            }
+        });
+        tableBody.innerHTML = tableHtml;
+      }
+
+      function updateCharts() {
+        const filteredData = processData();
+        const chartData = prepareChartData(filteredData);
+        
+        updateComparisonTable(filteredData);
+
+        const totalHours = chartData.distribution.data.reduce((sum, val) => sum + val, 0);
+        document.getElementById('total-hours').textContent = totalHours.toFixed(1) + ' hrs';
+
+        distributionChart.data.labels = chartData.distribution.labels;
+        distributionChart.data.datasets[0].data = chartData.distribution.data;
+        distributionChart.data.datasets[0].backgroundColor = chartData.distribution.bgColors;
+        distributionChart.update();
+        updatePieChartLegend(chartData.distribution);
+
+        barChart.data.labels = chartData.bar.labels;
+        barChart.data.datasets = chartData.bar.datasets;
+        barChart.update();
+
+        trendChart.data.labels = chartData.trend.labels;
+        trendChart.data.datasets = chartData.trend.datasets;
+        trendChart.update(); 
+        
+        const finalAnnotations = {};
+        let annotationCounter = 0;
+        const LABEL_HEIGHT = 16; 
+        const selectedWeeks = trendChart.data.labels;
+
+        for (let i = 1; i < selectedWeeks.length; i++) {
+            let weekAnnotations = [];
+            trendChart.data.datasets.forEach((dataset) => {
+                const prev = parseFloat(dataset.data[i - 1]);
+                const curr = parseFloat(dataset.data[i]);
+                if (curr > 0 || prev > 0) {
+                    const percentageChange = prev > 0 ? ((curr - prev) / prev) * 100 : 100;
+                    weekAnnotations.push({
+                        yValue: curr,
+                        change: percentageChange,
+                        label: dataset.label.replace(' Ticket', ''),
+                        color: dataset.borderColor,
+                    });
+                }
+            });
+
+            weekAnnotations.sort((a, b) => b.yValue - a.yValue);
+            let lastYPixel = -Infinity;
+
+            weekAnnotations.forEach(anno => {
+                const currentYPixel = trendChart.scales.y.getPixelForValue(anno.yValue);
+                const targetYPixel = Math.max(currentYPixel, lastYPixel + LABEL_HEIGHT);
+                
+                finalAnnotations[`label${annotationCounter++}`] = {
+                    type: 'label', xValue: i, yValue: trendChart.scales.y.getValueForPixel(targetYPixel),
+                    content: `${anno.label}: ${anno.change >= 0 ? '+' : ''}${anno.change.toFixed(0)}%`,
+                    font: { size: 11, weight: 'bold' }, color: anno.color,
+                    backgroundColor: 'rgba(255, 255, 255, 0.7)', borderRadius: 3, padding: 2,
+                    xAdjust: 10, yAdjust: 0
+                };
+                lastYPixel = targetYPixel;
+            });
+        }
+        
+        trendChart.options.plugins.annotation.annotations = finalAnnotations;
+        trendChart.update();
+
+        polarChart.data.labels = chartData.polar.labels;
+        polarChart.data.datasets[0].data = chartData.polar.data;
+        polarChart.data.datasets[0].backgroundColor = chartData.polar.bgColors;
+        polarChart.options.scales.r.suggestedMax = chartData.polar.data.length > 0 ? Math.max(...chartData.polar.data) * 1.1 : 100;
+        polarChart.update();
+      }
+      
+</script>
+</body>
+</html>
